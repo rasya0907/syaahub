@@ -1,0 +1,889 @@
+local CoreGui = gethui and gethui() or game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
+local HttpService = game:GetService("HttpService")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+local Lighting = game:GetService("Lighting")
+local Camera = workspace.CurrentCamera
+local httpRequest = request or http_request or (http and http.request)
+
+-- ==========================================
+-- 1. CLEANUP UI LAMA
+-- ==========================================
+if CoreGui:FindFirstChild("StudioLiteLoaderUI") then
+    CoreGui.StudioLiteLoaderUI:Destroy()
+end
+if CoreGui:FindFirstChild("StudioLiteMinIcon") then
+    CoreGui.StudioLiteMinIcon:Destroy()
+end
+if CoreGui:FindFirstChild("StudioLiteIntroUI") then
+    CoreGui.StudioLiteIntroUI:Destroy()
+end
+if CoreGui:FindFirstChild("SyaaIntroSfx") then
+    CoreGui.SyaaIntroSfx:Destroy()
+end
+if CoreGui:FindFirstChild("SyaaNotifGui") then
+    CoreGui.SyaaNotifGui:Destroy()
+end
+
+-- ==========================================
+-- 2. SETUP SCREEN GUI
+-- ==========================================
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "StudioLiteLoaderUI"
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.Parent = CoreGui
+
+local IconGui = Instance.new("ScreenGui")
+IconGui.Name = "StudioLiteMinIcon"
+IconGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+IconGui.Parent = CoreGui
+
+local IntroGui = Instance.new("ScreenGui")
+IntroGui.Name = "StudioLiteIntroUI"
+IntroGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+IntroGui.Parent = CoreGui
+
+-- ==========================================
+-- 3. DOWNLOADER ASSET (BG, ICON, SFX)
+-- ==========================================
+local bgFileName = "SyaaIntroBg.jpg"
+local iconFileName = "SyaaMenuIcon.jpg"
+local sfxFileName = "SyaaIntroSfx.mp3"
+
+local function downloadAsset(fileName, url)
+    if not isfile(fileName) then
+        local response = httpRequest({ Url = url, Method = "GET" })
+        if response and response.StatusCode == 200 then
+            writefile(fileName, response.Body)
+        end
+    end
+end
+
+downloadAsset(bgFileName, "https://www.image2url.com/r2/default/images/1787659364613-b90f374f-d9f4-482a-8bc5-3e989f0c2d9e.jpg")
+downloadAsset(iconFileName, "https://www.image2url.com/r2/default/images/1787658674878-0872771c-48ea-4e89-95ec-b8c6b697cd50.jpg")
+downloadAsset(sfxFileName, "https://www.image2url.com/r2/default/audio/1787659539922-456cc27b-9454-48a2-af43-26a4ebb4c7b3.mp3")
+
+-- ==========================================
+-- 4. INTRO LOADING SCREEN (Dengan VFX Salju Putih)
+-- ==========================================
+local IntroFrame = Instance.new("CanvasGroup")
+IntroFrame.Size = UDim2.new(0, 420, 0, 236)
+IntroFrame.Position = UDim2.new(0.5, -210, 0.5, -118)
+IntroFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 12)
+IntroFrame.BackgroundTransparency = 1
+IntroFrame.BorderSizePixel = 0
+IntroFrame.Parent = IntroGui
+
+local IntroCorner = Instance.new("UICorner")
+IntroCorner.CornerRadius = UDim.new(0, 14)
+IntroCorner.Parent = IntroFrame
+
+-- UI Stroke 3 Warna di Intro
+local IntroStroke = Instance.new("UIStroke")
+IntroStroke.Color = Color3.fromRGB(255, 255, 255)
+IntroStroke.Thickness = 2.5
+IntroStroke.Parent = IntroFrame
+
+local IntroStrokeGrad = Instance.new("UIGradient")
+IntroStrokeGrad.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 130, 255)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(245, 230, 210)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(12, 14, 18))
+})
+IntroStrokeGrad.Parent = IntroStroke
+
+task.spawn(function()
+    local rot = 0
+    RunService.RenderStepped:Connect(function(dt)
+        if IntroStroke and IntroStrokeGrad then
+            rot = (rot + (dt * 120)) % 360
+            IntroStrokeGrad.Rotation = rot
+        end
+    end)
+end)
+
+-- LAYER GAMBAR BACKGROUND LOADING
+local BgImage = Instance.new("ImageLabel")
+BgImage.Size = UDim2.new(1.2, 0, 1.2, 0)
+BgImage.Position = UDim2.new(-0.1, 0, -0.1, 0)
+BgImage.BackgroundTransparency = 1
+BgImage.ScaleType = Enum.ScaleType.Crop
+BgImage.ZIndex = 0
+BgImage.Parent = IntroFrame
+
+if isfile(bgFileName) then
+    pcall(function() BgImage.Image = getcustomasset(bgFileName) end)
+end
+
+-- LAYER OVERLAY HITAM TRANSPARAN LOADING
+local IntroOverlay = Instance.new("Frame")
+IntroOverlay.Size = UDim2.new(1, 0, 1, 0)
+IntroOverlay.BackgroundColor3 = Color3.fromRGB(12, 14, 18)
+IntroOverlay.BackgroundTransparency = 0.15
+IntroOverlay.BorderSizePixel = 0
+IntroOverlay.ZIndex = 1
+IntroOverlay.Parent = IntroFrame
+
+-- ==========================================
+-- SISTEM VFX SALJU PUTIH (SNOW EFFECT)
+-- ==========================================
+local SnowContainer = Instance.new("Folder")
+SnowContainer.Name = "SnowVFX"
+SnowContainer.Parent = IntroFrame
+
+task.spawn(function()
+    math.randomseed(tick())
+    while IntroFrame and IntroFrame.Parent do
+        local snowflake = Instance.new("Frame")
+        local size = math.random(3, 6)
+        snowflake.Size = UDim2.new(0, size, 0, size)
+        snowflake.Position = UDim2.new(math.random(0, 420) / 420, 0, -0.1, 0)
+        snowflake.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        snowflake.BackgroundTransparency = math.random(20, 50) / 100 -- Variasi transparan
+        snowflake.BorderSizePixel = 0
+        snowflake.ZIndex = 2
+        snowflake.Parent = SnowContainer
+
+        local sCorner = Instance.new("UICorner")
+        sCorner.CornerRadius = UDim.new(1, 0)
+        sCorner.Parent = snowflake
+
+        -- Animasi Salju Jatuh ke Bawah
+        local fallDuration = math.random(30, 60) / 10
+        local targetX = snowflake.Position.X.Scale + (math.random(-10, 10) / 100)
+        
+        local tw = TweenService:Create(snowflake, TweenInfo.new(fallDuration, Enum.EasingStyle.Linear), {
+            Position = UDim2.new(targetX, 0, 1.1, 0)
+        })
+        tw:Play()
+        
+        tw.Completed:Connect(function()
+            snowflake:Destroy()
+        end)
+
+        task.wait(0.2) -- Jeda antar kemunculan salju
+    end
+end)
+
+local IntroTitle = Instance.new("TextLabel")
+IntroTitle.Size = UDim2.new(1, 0, 0, 40)
+IntroTitle.Position = UDim2.new(0, 0, 0.3, 0)
+IntroTitle.BackgroundTransparency = 1
+IntroTitle.Text = "Syaa Hub"
+IntroTitle.TextColor3 = Color3.fromRGB(245, 230, 210)
+IntroTitle.Font = Enum.Font.GothamBlack
+IntroTitle.TextSize = 30
+IntroTitle.ZIndex = 3
+IntroTitle.Parent = IntroFrame
+
+local IntroPercent = Instance.new("TextLabel")
+IntroPercent.Size = UDim2.new(1, 0, 0, 20)
+IntroPercent.Position = UDim2.new(0, 0, 0.52, 0)
+IntroPercent.BackgroundTransparency = 1
+IntroPercent.Text = "Loading... 0%"
+IntroPercent.TextColor3 = Color3.fromRGB(200, 200, 210)
+IntroPercent.Font = Enum.Font.GothamBold
+IntroPercent.TextSize = 13
+IntroPercent.ZIndex = 3
+IntroPercent.Parent = IntroFrame
+
+local LoadBarBg = Instance.new("Frame")
+LoadBarBg.Size = UDim2.new(0.6, 0, 0, 7)
+LoadBarBg.Position = UDim2.new(0.2, 0, 0.65, 0)
+LoadBarBg.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+LoadBarBg.BorderSizePixel = 0
+LoadBarBg.ZIndex = 3
+LoadBarBg.Parent = IntroFrame
+
+local LoadBarCorner = Instance.new("UICorner")
+LoadBarCorner.CornerRadius = UDim.new(1, 0)
+LoadBarCorner.Parent = LoadBarBg
+
+local LoadBarFill = Instance.new("Frame")
+LoadBarFill.Size = UDim2.new(0, 0, 1, 0)
+LoadBarFill.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+LoadBarFill.BorderSizePixel = 0
+LoadBarFill.ZIndex = 4
+LoadBarFill.Parent = LoadBarBg
+
+local LoadFillCorner = Instance.new("UICorner")
+LoadFillCorner.CornerRadius = UDim.new(1, 0)
+LoadFillCorner.Parent = LoadBarFill
+
+local LoadGradient = Instance.new("UIGradient")
+LoadGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 130, 255)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(245, 230, 210)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(12, 14, 18))
+})
+LoadGradient.Parent = LoadBarFill
+
+-- ==========================================
+-- 5. UTAMA: MAIN FRAME
+-- ==========================================
+local MainFrame = Instance.new("CanvasGroup")
+MainFrame.Size = UDim2.new(0, 440, 0, 270)
+MainFrame.Position = UDim2.new(0.5, -220, 0.5, -135)
+MainFrame.BackgroundColor3 = Color3.fromRGB(12, 14, 18)
+MainFrame.BackgroundTransparency = 1 
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = false
+MainFrame.GroupTransparency = 1
+MainFrame.Visible = false
+MainFrame.ZIndex = 1
+MainFrame.Parent = ScreenGui
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 14)
+MainCorner.Parent = MainFrame
+
+-- LAYER GAMBAR BACKGROUND (Paling Belakang)
+local MainBgImage = Instance.new("ImageLabel")
+MainBgImage.Size = UDim2.new(1, 0, 1, 0)
+MainBgImage.BackgroundTransparency = 1
+MainBgImage.ScaleType = Enum.ScaleType.Crop
+MainBgImage.ZIndex = 0
+MainBgImage.Parent = MainFrame
+
+if isfile(bgFileName) then
+    pcall(function() MainBgImage.Image = getcustomasset(bgFileName) end)
+end
+
+-- LAYER OVERLAY HITAM TRANSPARAN
+local MainOverlay = Instance.new("Frame")
+MainOverlay.Size = UDim2.new(1, 0, 1, 0)
+MainOverlay.BackgroundColor3 = Color3.fromRGB(12, 14, 18)
+MainOverlay.BackgroundTransparency = 0.15 
+MainOverlay.BorderSizePixel = 0
+MainOverlay.ZIndex = 1
+MainOverlay.Parent = MainFrame
+
+local MainStroke = Instance.new("UIStroke")
+MainStroke.Color = Color3.fromRGB(255, 255, 255)
+MainStroke.Thickness = 2.5
+MainStroke.Parent = MainFrame
+
+local StrokeGradient = Instance.new("UIGradient")
+StrokeGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 130, 255)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(245, 230, 210)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(12, 14, 18))
+})
+StrokeGradient.Parent = MainStroke
+
+task.spawn(function()
+    local rot = 0
+    RunService.RenderStepped:Connect(function(dt)
+        if MainStroke and StrokeGradient then
+            rot = (rot + (dt * 120)) % 360
+            StrokeGradient.Rotation = rot
+        end
+    end)
+end)
+
+-- TITLE BAR & JUDUL
+local TitleBar = Instance.new("Frame")
+TitleBar.Size = UDim2.new(1, 0, 0, 38)
+TitleBar.BackgroundTransparency = 1
+TitleBar.ZIndex = 2
+TitleBar.Parent = MainFrame
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(0, 250, 1, 0)
+Title.Position = UDim2.new(0, 16, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "Syaa Hub Asset Loader"
+Title.TextColor3 = Color3.fromRGB(245, 230, 210)
+Title.TextSize = 14
+Title.Font = Enum.Font.GothamBold
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.ZIndex = 2
+Title.Parent = TitleBar
+
+-- KONTROL WINDOW
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 26, 0, 26)
+CloseBtn.Position = UDim2.new(1, -34, 0, 6)
+CloseBtn.BackgroundTransparency = 1
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.fromRGB(220, 80, 80)
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.TextSize = 13
+CloseBtn.ZIndex = 3
+CloseBtn.Parent = MainFrame
+
+local MinBtn = Instance.new("TextButton")
+MinBtn.Size = UDim2.new(0, 26, 0, 26)
+MinBtn.Position = UDim2.new(1, -66, 0, 6)
+MinBtn.BackgroundColor3 = Color3.fromRGB(25, 30, 40)
+MinBtn.Text = "-"
+MinBtn.TextColor3 = Color3.fromRGB(245, 230, 210)
+MinBtn.Font = Enum.Font.GothamBold
+MinBtn.TextSize = 13
+MinBtn.ZIndex = 3
+MinBtn.Parent = MainFrame
+
+local MinCorner = Instance.new("UICorner")
+MinCorner.CornerRadius = UDim.new(0, 6)
+MinCorner.Parent = MinBtn
+
+-- ==========================================
+-- MINIMIZED ICON & SMOOTH DRAG
+-- ==========================================
+local MinIcon = Instance.new("ImageButton")
+MinIcon.Size = UDim2.new(0, 0, 0, 0)
+MinIcon.Position = UDim2.new(0, 16, 0.5, -22)
+MinIcon.BackgroundColor3 = Color3.fromRGB(12, 14, 18)
+if isfile(iconFileName) then
+    pcall(function() MinIcon.Image = getcustomasset(iconFileName) end)
+end
+MinIcon.Visible = false
+MinIcon.Active = true
+MinIcon.Draggable = false
+MinIcon.ZIndex = 10
+MinIcon.Parent = IconGui
+
+local IconCorner = Instance.new("UICorner")
+IconCorner.CornerRadius = UDim.new(0, 12)
+IconCorner.Parent = MinIcon
+
+local IconStroke = Instance.new("UIStroke")
+IconStroke.Color = Color3.fromRGB(0, 130, 255)
+IconStroke.Thickness = 2
+IconStroke.Parent = MinIcon
+
+-- Sistem Smooth Drag Icon
+local draggingIcon = false
+local dragInputIcon
+local dragStartIcon
+local startPosIcon
+
+MinIcon.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        draggingIcon = true
+        dragStartIcon = input.Position
+        startPosIcon = MinIcon.Position
+
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                draggingIcon = false
+            end
+        end)
+    end
+end)
+
+MinIcon.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInputIcon = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInputIcon and draggingIcon then
+        local delta = input.Position - dragStartIcon
+        MinIcon.Position = UDim2.new(startPosIcon.X.Scale, startPosIcon.X.Offset + delta.X, startPosIcon.Y.Scale, startPosIcon.Y.Offset + delta.Y)
+    end
+end)
+
+-- ==========================================
+-- 6. TAB KATEGORI PIL & UI STROKE
+-- ==========================================
+local TabContainer = Instance.new("Frame")
+TabContainer.Size = UDim2.new(0.93, 0, 0, 30)
+TabContainer.Position = UDim2.new(0.035, 0, 0, 40)
+TabContainer.BackgroundColor3 = Color3.fromRGB(20, 24, 32)
+TabContainer.BorderSizePixel = 0
+TabContainer.ZIndex = 2
+TabContainer.Parent = MainFrame
+
+local TabCorner = Instance.new("UICorner")
+TabCorner.CornerRadius = UDim.new(0, 15)
+TabCorner.Parent = TabContainer
+
+local TabLayout = Instance.new("UIListLayout")
+TabLayout.FillDirection = Enum.FillDirection.Horizontal
+TabLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+TabLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+TabLayout.Parent = TabContainer
+
+local currentTab = ".rbxlx" 
+local tabButtons = {}
+
+local function createTabButton(name)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0.33, 0, 0.85, 0)
+    btn.BackgroundColor3 = (name == currentTab) and Color3.fromRGB(0, 130, 255) or Color3.fromRGB(20, 24, 32)
+    btn.Text = name
+    btn.TextColor3 = (name == currentTab) and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(160, 170, 190)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 11
+    btn.ZIndex = 3
+    btn.Parent = TabContainer
+
+    local btnCorner = Instance.new("UICorner")
+    btnCorner.CornerRadius = UDim.new(0, 12)
+    btnCorner.Parent = btn
+
+    local btnStroke = Instance.new("UIStroke")
+    btnStroke.Color = (name == currentTab) and Color3.fromRGB(0, 130, 255) or Color3.fromRGB(40, 45, 55)
+    btnStroke.Thickness = 1
+    btnStroke.Parent = btn
+
+    tabButtons[name] = btn
+    return btn
+end
+
+createTabButton(".rbxlx")
+createTabButton(".rbxl")
+createTabButton(".rbxm")
+
+-- ISI KONTEN
+local ScanBtn = Instance.new("TextButton")
+ScanBtn.Size = UDim2.new(0.75, 0, 0, 30)
+ScanBtn.Position = UDim2.new(0.125, 0, 0, 78)
+ScanBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 240)
+ScanBtn.Text = "Scan Folder Workspace"
+ScanBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ScanBtn.Font = Enum.Font.GothamSemibold
+ScanBtn.TextSize = 12
+ScanBtn.ZIndex = 2
+ScanBtn.Parent = MainFrame
+
+local ScanCorner = Instance.new("UICorner")
+ScanCorner.CornerRadius = UDim.new(0, 10)
+ScanCorner.Parent = ScanBtn
+
+local FileList = Instance.new("ScrollingFrame")
+FileList.Size = UDim2.new(0.93, 0, 1, -118)
+FileList.Position = UDim2.new(0.035, 0, 0, 114)
+FileList.BackgroundColor3 = Color3.fromRGB(10, 12, 16)
+FileList.BackgroundTransparency = 0.6
+FileList.BorderSizePixel = 0
+FileList.ScrollBarThickness = 3
+FileList.ZIndex = 2
+FileList.Parent = MainFrame
+
+local ListLayout = Instance.new("UIListLayout")
+ListLayout.Padding = UDim.new(0, 5)
+ListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+ListLayout.Parent = FileList
+
+local ListCorner = Instance.new("UICorner")
+ListCorner.CornerRadius = UDim.new(0, 10)
+ListCorner.Parent = FileList
+
+-- ==========================================
+-- SISTEM NOTIFIKASI CUSTOM (Slide Kanan Bawah)
+-- ==========================================
+local function showNotification()
+    local NotifGui = Instance.new("ScreenGui")
+    NotifGui.Name = "SyaaNotifGui"
+    NotifGui.Parent = CoreGui
+
+    local NotifFrame = Instance.new("Frame")
+    NotifFrame.Size = UDim2.new(0, 280, 0, 70)
+    NotifFrame.Position = UDim2.new(1, 20, 1, -100)
+    NotifFrame.BackgroundColor3 = Color3.fromRGB(15, 17, 22)
+    NotifFrame.BorderSizePixel = 0
+    NotifFrame.Parent = NotifGui
+
+    local NCorner = Instance.new("UICorner")
+    NCorner.CornerRadius = UDim.new(0, 8)
+    NCorner.Parent = NotifFrame
+    
+    local NStroke = Instance.new("UIStroke")
+    NStroke.Color = Color3.fromRGB(0, 130, 255)
+    NStroke.Thickness = 1.5
+    NStroke.Parent = NotifFrame
+
+    local ProfilePic = Instance.new("ImageLabel")
+    ProfilePic.Size = UDim2.new(0, 50, 0, 50)
+    ProfilePic.Position = UDim2.new(0, 10, 0, 10)
+    ProfilePic.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    ProfilePic.ScaleType = Enum.ScaleType.Crop
+    ProfilePic.Parent = NotifFrame
+
+    task.spawn(function()
+        local success, userId = pcall(function()
+            return Players:GetUserIdFromNameAsync("tepresakkriminal")
+        end)
+        
+        if success and userId then
+            local imageUrl = Players:GetUserThumbnailAsync(userId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
+            ProfilePic.Image = imageUrl
+        elseif isfile(iconFileName) then
+            pcall(function() ProfilePic.Image = getcustomasset(iconFileName) end)
+        end
+    end)
+
+    local PicCorner = Instance.new("UICorner")
+    PicCorner.CornerRadius = UDim.new(1, 0)
+    PicCorner.Parent = ProfilePic
+
+    local TitleText = Instance.new("TextLabel")
+    TitleText.Size = UDim2.new(1, -75, 0, 20)
+    TitleText.Position = UDim2.new(0, 70, 0, 10)
+    TitleText.BackgroundTransparency = 1
+    TitleText.Text = "Developer - Syaa"
+    TitleText.TextColor3 = Color3.fromRGB(0, 130, 255)
+    TitleText.Font = Enum.Font.GothamBold
+    TitleText.TextSize = 13
+    TitleText.TextXAlignment = Enum.TextXAlignment.Left
+    TitleText.Parent = NotifFrame
+
+    local BodyText = Instance.new("TextLabel")
+    BodyText.Size = UDim2.new(1, -75, 0, 30)
+    BodyText.Position = UDim2.new(0, 70, 0, 30)
+    BodyText.BackgroundTransparency = 1
+    local playerName = Players.LocalPlayer and Players.LocalPlayer.Name or "User"
+    BodyText.Text = "Hallo " .. playerName .. ", selamat datang di Syaa Hub!"
+    BodyText.TextColor3 = Color3.fromRGB(220, 220, 220)
+    BodyText.Font = Enum.Font.Gotham
+    BodyText.TextSize = 12
+    BodyText.TextWrapped = true
+    BodyText.TextXAlignment = Enum.TextXAlignment.Left
+    BodyText.TextYAlignment = Enum.TextYAlignment.Top
+    BodyText.Parent = NotifFrame
+
+    TweenService:Create(NotifFrame, TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Position = UDim2.new(1, -300, 1, -100)}):Play()
+
+    task.delay(5, function()
+        local twOut = TweenService:Create(NotifFrame, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.In), {Position = UDim2.new(1, 20, 1, -100)})
+        twOut:Play()
+        twOut.Completed:Wait()
+        NotifGui:Destroy()
+    end)
+end
+
+-- ==========================================
+-- 7. LOGIKA ALUR INTRO (10 DETIK) -> MAIN UI
+-- ==========================================
+local IntroBlur = Instance.new("BlurEffect")
+IntroBlur.Size = 0
+IntroBlur.Parent = Lighting
+
+local function startMainUI()
+    local finishTw = TweenService:Create(IntroBlur, TweenInfo.new(1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = 0})
+    TweenService:Create(Camera, TweenInfo.new(1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {FieldOfView = 70}):Play()
+    finishTw:Play()
+    finishTw.Completed:Connect(function() IntroBlur:Destroy() end)
+
+    -- Animasi Intro Keluar (Smooth Fade + Geser halus tanpa merusak UICorner)
+    local twOut = TweenService:Create(IntroFrame, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+        Position = UDim2.new(0.5, -210, 0.5, -145),
+        GroupTransparency = 1
+    })
+    twOut:Play()
+    twOut.Completed:Wait()
+    IntroGui:Destroy()
+
+    MainFrame.Visible = true
+    MainFrame.Size = UDim2.new(0, 440, 0, 270)
+    MainFrame.Position = UDim2.new(0.5, -220, 0.5, -145)
+    MainFrame.GroupTransparency = 1
+
+    local twIn = TweenService:Create(MainFrame, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+        Position = UDim2.new(0.5, -220, 0.5, -135),
+        GroupTransparency = 0
+    })
+    twIn:Play()
+    
+    showNotification()
+end
+
+TweenService:Create(BgImage, TweenInfo.new(10, Enum.EasingStyle.Linear), {Size = UDim2.new(1, 0, 1, 0), Position = UDim2.new(0, 0, 0, 0)}):Play()
+
+task.spawn(function()
+    if isfile(sfxFileName) then
+        pcall(function()
+            local sfx = Instance.new("Sound")
+            sfx.Name = "SyaaIntroSfx"
+            sfx.SoundId = getcustomasset(sfxFileName)
+            sfx.Volume = 1
+            sfx.Parent = CoreGui
+            sfx:Play()
+        end)
+    end
+
+    TweenService:Create(IntroBlur, TweenInfo.new(2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = 24}):Play()
+    TweenService:Create(Camera, TweenInfo.new(2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {FieldOfView = 60}):Play()
+
+    for i = 0, 100, 1 do
+        LoadBarFill.Size = UDim2.new(i / 100, 0, 1, 0)
+        IntroPercent.Text = "Loading... " .. tostring(i) .. "%"
+        task.wait(0.1)
+    end
+    
+    IntroPercent.Text = "System Ready!"
+    task.wait(0.4)
+    startMainUI()
+end)
+
+-- ==========================================
+-- 8. LOGIC & ANIMASI SMOOTH TUTUP / MINIMIZE (Fix UICorner Bug)
+-- ==========================================
+CloseBtn.MouseButton1Click:Connect(function()
+    -- Animasi Close pakai Fade & Geser halus (Tanpa ubah Size drastis biar corner aman)
+    local tw = TweenService:Create(MainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+        Position = UDim2.new(0.5, -220, 0.5, -120),
+        GroupTransparency = 1
+    })
+    tw:Play()
+    tw.Completed:Wait()
+    ScreenGui:Destroy()
+    IconGui:Destroy()
+end)
+
+MinBtn.MouseButton1Click:Connect(function()
+    local anim = TweenService:Create(MainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+        Position = UDim2.new(0.5, -220, 0.5, -120),
+        GroupTransparency = 1
+    })
+    anim:Play()
+    anim.Completed:Connect(function()
+        MainFrame.Visible = false
+        
+        MinIcon.Visible = true
+        MinIcon.Size = UDim2.new(0, 0, 0, 0)
+        TweenService:Create(MinIcon, TweenInfo.new(0.5, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out), {
+            Size = UDim2.new(0, 44, 0, 44)
+        }):Play()
+    end)
+end)
+
+MinIcon.MouseButton1Click:Connect(function()
+    local iconOut = TweenService:Create(MinIcon, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
+        Size = UDim2.new(0, 0, 0, 0)
+    })
+    iconOut:Play()
+    iconOut.Completed:Wait()
+    MinIcon.Visible = false
+    
+    MainFrame.Visible = true
+    MainFrame.GroupTransparency = 1
+    MainFrame.Size = UDim2.new(0, 440, 0, 270)
+    MainFrame.Position = UDim2.new(0.5, -220, 0.5, -120)
+    
+    local anim = TweenService:Create(MainFrame, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+        GroupTransparency = 0,
+        Position = UDim2.new(0.5, -220, 0.5, -135)
+    })
+    anim:Play()
+end)
+
+-- ==========================================
+-- 9. TAB CLICK & FILE SCAN LOGIC
+-- ==========================================
+local scannedFilesData = {}
+local renderFileList
+
+for name, btn in pairs(tabButtons) do
+    btn.MouseButton1Click:Connect(function()
+        currentTab = name
+        for tName, tBtn in pairs(tabButtons) do
+            local stroke = tBtn:FindFirstChildOfClass("UIStroke")
+            if tName == currentTab then
+                TweenService:Create(tBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(0, 130, 255)}):Play()
+                tBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+                if stroke then stroke.Color = Color3.fromRGB(0, 130, 255) end
+            else
+                TweenService:Create(tBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(20, 24, 32)}):Play()
+                tBtn.TextColor3 = Color3.fromRGB(160, 170, 190)
+                if stroke then stroke.Color = Color3.fromRGB(40, 45, 55) end
+            end
+        end
+        if #scannedFilesData > 0 then
+            renderFileList()
+        end
+    end)
+end
+
+renderFileList = function()
+    for _, child in pairs(FileList:GetChildren()) do
+        if child:IsA("Frame") or child:IsA("TextLabel") then child:Destroy() end
+    end
+
+    local shownCount = 0
+    for _, fileInfo in ipairs(scannedFilesData) do
+        local fileName = fileInfo.name
+        local fullPath = fileInfo.path
+
+        if fileName:match(currentTab:gsub("%.", "%%.") .. "$") then
+            shownCount = shownCount + 1
+            local ItemFrame = Instance.new("Frame")
+            ItemFrame.Size = UDim2.new(0.97, 0, 0, 32)
+            ItemFrame.BackgroundColor3 = Color3.fromRGB(20, 24, 32)
+            ItemFrame.BackgroundTransparency = 0.2
+            ItemFrame.ZIndex = 3
+            ItemFrame.Parent = FileList
+
+            local ItemCorner = Instance.new("UICorner")
+            ItemCorner.CornerRadius = UDim.new(0, 6)
+            ItemCorner.Parent = ItemFrame
+
+            local IconLabel = Instance.new("TextLabel")
+            IconLabel.Size = UDim2.new(0, 26, 1, 0)
+            IconLabel.BackgroundTransparency = 1
+            IconLabel.Text = "///" 
+            IconLabel.TextColor3 = Color3.fromRGB(0, 130, 255)
+            IconLabel.Font = Enum.Font.GothamBold
+            IconLabel.TextSize = 12
+            IconLabel.ZIndex = 4
+            IconLabel.Parent = ItemFrame
+
+            local TextClip = Instance.new("Frame")
+            TextClip.Size = UDim2.new(1, -90, 1, 0)
+            TextClip.Position = UDim2.new(0, 26, 0, 0)
+            TextClip.BackgroundTransparency = 1
+            TextClip.ClipsDescendants = true
+            TextClip.ZIndex = 4
+            TextClip.Parent = ItemFrame
+
+            local NameLabel = Instance.new("TextLabel")
+            NameLabel.Size = UDim2.new(2, 0, 1, 0)
+            NameLabel.Position = UDim2.new(0, 0, 0, 0)
+            NameLabel.BackgroundTransparency = 1
+            NameLabel.Text = fileName
+            NameLabel.TextColor3 = Color3.fromRGB(235, 235, 240)
+            NameLabel.TextXAlignment = Enum.TextXAlignment.Left
+            NameLabel.Font = Enum.Font.GothamMedium
+            NameLabel.TextSize = 11
+            NameLabel.ZIndex = 4
+            NameLabel.Parent = TextClip
+
+            task.spawn(function()
+                task.wait(1)
+                if NameLabel and NameLabel.Parent and NameLabel.TextBounds.X > TextClip.AbsoluteSize.X then
+                    while NameLabel and NameLabel.Parent do
+                        local tw = TweenService:Create(NameLabel, TweenInfo.new(4, Enum.EasingStyle.Linear), {Position = UDim2.new(-1, 0, 0, 0)})
+                        tw:Play()
+                        tw.Completed:Wait()
+                        NameLabel.Position = UDim2.new(0, 0, 0, 0)
+                        task.wait(1.5)
+                    end
+                end
+            end)
+
+            local ActionBtn = Instance.new("TextButton")
+            ActionBtn.Size = UDim2.new(0, 68, 0, 23)
+            ActionBtn.Position = UDim2.new(1, -72, 0.5, -11.5)
+            ActionBtn.BackgroundColor3 = Color3.fromRGB(0, 130, 240)
+            ActionBtn.Text = "Pasang"
+            ActionBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            ActionBtn.Font = Enum.Font.GothamBold
+            ActionBtn.TextSize = 11
+            ActionBtn.ZIndex = 4
+            ActionBtn.Parent = ItemFrame
+
+            local ActionCorner = Instance.new("UICorner")
+            ActionCorner.CornerRadius = UDim.new(0, 5)
+            ActionCorner.Parent = ActionBtn
+
+            ActionBtn.MouseButton1Click:Connect(function()
+                ActionBtn.Text = "Loading..."
+                ActionBtn.BackgroundColor3 = Color3.fromRGB(180, 120, 0)
+                
+                task.spawn(function()
+                    local success, err = pcall(function()
+                        if not getcustomasset or not httpRequest or not readfile or not writefile then
+                            error("Executor kurang fitur!")
+                        end
+                        
+                        local rawContent = readfile(fullPath)
+                        local isPlaceFile = fileName:match("%.rbxlx$") or fileName:match("%.rbxl$")
+                        local finalFileName = fileName
+                        
+                        if isPlaceFile then
+                            ActionBtn.Text = "Convert API..."
+                            local response = httpRequest({
+                                Url = "https://syaabot.my.id/v1/roblox/convert", 
+                                Method = "POST",
+                                Headers = { ["Content-Type"] = "application/octet-stream" },
+                                Body = rawContent
+                            })
+                            
+                            if response.StatusCode == 200 then
+                                finalFileName = "Clean_" .. fileName:gsub("%.rbxlx$", ".rbxmx"):gsub("%.rbxl$", ".rbxmx")
+                                writefile(finalFileName, response.Body)
+                            else
+                                local successDecode, decoded = pcall(function()
+                                    return HttpService:JSONDecode(response.Body)
+                                end)
+                                if successDecode and decoded and decoded.error then
+                                    error("API: " .. tostring(decoded.error))
+                                else
+                                    error("Server API Error: Code " .. tostring(response.StatusCode))
+                                end
+                            end
+                        end
+                        
+                        ActionBtn.Text = "Injecting..."
+                        local assetUrl = getcustomasset(finalFileName)
+                        local objects = game:GetObjects(assetUrl)
+                        
+                        for _, obj in pairs(objects) do
+                            pcall(function() obj.Parent = workspace end)
+                        end
+                    end)
+                    
+                    if success then
+                        ActionBtn.Text = "Berhasil!"
+                        ActionBtn.BackgroundColor3 = Color3.fromRGB(0, 160, 80)
+                    else
+                        ActionBtn.Text = "Gagal"
+                        ActionBtn.BackgroundColor3 = Color3.fromRGB(210, 60, 60)
+                        warn("Syaa Hub Error: " .. tostring(err))
+                    end
+                    
+                    task.wait(2.5)
+                    ActionBtn.Text = "Pasang"
+                    ActionBtn.BackgroundColor3 = Color3.fromRGB(0, 130, 240)
+                end)
+            end)
+        end
+    end
+    
+    if shownCount == 0 then
+        local EmptyText = Instance.new("TextLabel")
+        EmptyText.Size = UDim2.new(1, 0, 1, 0)
+        EmptyText.BackgroundTransparency = 1
+        EmptyText.Text = "Tidak ada file " .. currentTab
+        EmptyText.TextColor3 = Color3.fromRGB(100, 110, 130)
+        EmptyText.Font = Enum.Font.GothamMedium
+        EmptyText.TextSize = 12
+        EmptyText.Parent = FileList
+    end
+end
+
+ScanBtn.MouseButton1Click:Connect(function()
+    scannedFilesData = {}
+    if not listfiles then
+        ScanBtn.Text = "Executor tidak support listfiles!"
+        ScanBtn.BackgroundColor3 = Color3.fromRGB(210, 60, 60)
+        return
+    end
+
+    ScanBtn.Text = "Mencari file..."
+    local success, files = pcall(function() return listfiles("workspace") end)
+    if not success or type(files) ~= "table" then
+        success, files = pcall(function() return listfiles("") end)
+    end
+
+    if success and type(files) == "table" then
+        for _, filePath in ipairs(files) do
+            local fileName = filePath:match("([^/\\]+)$") or filePath
+            if fileName:match("%.rbxm$") or fileName:match("%.rbxl$") or fileName:match("%.rbxlx$") then
+                table.insert(scannedFilesData, {name = fileName, path = filePath})
+            end
+        end
+        ScanBtn.Text = "Scan Ulang (" .. #scannedFilesData .. " File)"
+        ScanBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 240)
+        renderFileList()
+    else
+        ScanBtn.Text = "Folder kosong / tidak terbaca"
+        ScanBtn.BackgroundColor3 = Color3.fromRGB(210, 60, 60)
+    end
+end)
