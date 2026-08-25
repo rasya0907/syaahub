@@ -51,6 +51,8 @@ IntroGui.Parent = CoreGui
 local bgFileName = "SyaaIntroBg.jpg"
 local iconFileName = "SyaaMenuIcon.jpg"
 local sfxFileName = "SyaaIntroSfx.mp3"
+local scanIconFileName = "SyaaScanIcon.png"
+local folderIconFileName = "SyaaFolderIcon.png"
 
 local function downloadAsset(fileName, url)
     if not isfile(fileName) then
@@ -64,6 +66,8 @@ end
 downloadAsset(bgFileName, "https://www.image2url.com/r2/default/images/1787659364613-b90f374f-d9f4-482a-8bc5-3e989f0c2d9e.jpg")
 downloadAsset(iconFileName, "https://www.image2url.com/r2/default/images/1787658674878-0872771c-48ea-4e89-95ec-b8c6b697cd50.jpg")
 downloadAsset(sfxFileName, "https://www.image2url.com/r2/default/audio/1787659539922-456cc27b-9454-48a2-af43-26a4ebb4c7b3.mp3")
+downloadAsset(scanIconFileName, "https://www.image2url.com/r2/default/images/1787683421978-89706e10-7b23-4492-a648-32b2e0bf8a0f.png")
+downloadAsset(folderIconFileName, "https://www.image2url.com/r2/default/images/1787683503674-440e11c2-788c-44bb-94ea-9d2445bd7ace.png")
 
 -- ==========================================
 -- 4. INTRO LOADING SCREEN (Dengan VFX Salju Putih)
@@ -141,7 +145,7 @@ task.spawn(function()
         snowflake.Size = UDim2.new(0, size, 0, size)
         snowflake.Position = UDim2.new(math.random(0, 420) / 420, 0, -0.1, 0)
         snowflake.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-        snowflake.BackgroundTransparency = math.random(20, 50) / 100 -- Variasi transparan
+        snowflake.BackgroundTransparency = math.random(20, 50) / 100 
         snowflake.BorderSizePixel = 0
         snowflake.ZIndex = 2
         snowflake.Parent = SnowContainer
@@ -163,7 +167,7 @@ task.spawn(function()
             snowflake:Destroy()
         end)
 
-        task.wait(0.2) -- Jeda antar kemunculan salju
+        task.wait(0.2) 
     end
 end)
 
@@ -440,7 +444,7 @@ createTabButton(".rbxlx")
 createTabButton(".rbxl")
 createTabButton(".rbxm")
 
--- ISI KONTEN
+-- ISI KONTEN (SCAN BUTTON DENGAN IKON)
 local ScanBtn = Instance.new("TextButton")
 ScanBtn.Size = UDim2.new(0.75, 0, 0, 30)
 ScanBtn.Position = UDim2.new(0.125, 0, 0, 78)
@@ -451,6 +455,16 @@ ScanBtn.Font = Enum.Font.GothamSemibold
 ScanBtn.TextSize = 12
 ScanBtn.ZIndex = 2
 ScanBtn.Parent = MainFrame
+
+local ScanIcon = Instance.new("ImageLabel")
+ScanIcon.Size = UDim2.new(0, 16, 0, 16)
+ScanIcon.Position = UDim2.new(0, 15, 0.5, -8) -- Ditaruh di pinggir kiri tombol
+ScanIcon.BackgroundTransparency = 1
+ScanIcon.ZIndex = 3
+if isfile(scanIconFileName) then
+    pcall(function() ScanIcon.Image = getcustomasset(scanIconFileName) end)
+end
+ScanIcon.Parent = ScanBtn
 
 local ScanCorner = Instance.new("UICorner")
 ScanCorner.CornerRadius = UDim.new(0, 10)
@@ -570,8 +584,10 @@ local function startMainUI()
     TweenService:Create(Camera, TweenInfo.new(1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {FieldOfView = 70}):Play()
     finishTw:Play()
     finishTw.Completed:Connect(function() IntroBlur:Destroy() end)
+    
+    -- Hilangkan stroke intro lebih cepat biar ga telat / ngeglitch
+    TweenService:Create(IntroStroke, TweenInfo.new(0.2, Enum.EasingStyle.Linear), {Transparency = 1}):Play()
 
-    -- Animasi Intro Keluar (Smooth Fade + Geser halus tanpa merusak UICorner)
     local twOut = TweenService:Create(IntroFrame, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
         Position = UDim2.new(0.5, -210, 0.5, -145),
         GroupTransparency = 1
@@ -584,12 +600,16 @@ local function startMainUI()
     MainFrame.Size = UDim2.new(0, 440, 0, 270)
     MainFrame.Position = UDim2.new(0.5, -220, 0.5, -145)
     MainFrame.GroupTransparency = 1
+    MainStroke.Transparency = 1 -- Sembunyikan stroke duluan
 
     local twIn = TweenService:Create(MainFrame, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
         Position = UDim2.new(0.5, -220, 0.5, -135),
         GroupTransparency = 0
     })
     twIn:Play()
+    
+    -- Munculin stroke barengan sama frame
+    TweenService:Create(MainStroke, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Transparency = 0}):Play()
     
     showNotification()
 end
@@ -623,10 +643,12 @@ task.spawn(function()
 end)
 
 -- ==========================================
--- 8. LOGIC & ANIMASI SMOOTH TUTUP / MINIMIZE (Fix UICorner Bug)
+-- 8. LOGIC & ANIMASI SMOOTH TUTUP / MINIMIZE (Fix Stroke Bug)
 -- ==========================================
 CloseBtn.MouseButton1Click:Connect(function()
-    -- Animasi Close pakai Fade & Geser halus (Tanpa ubah Size drastis biar corner aman)
+    -- Hilangkan stroke lebih cepat sebelum animasi nutup beres
+    TweenService:Create(MainStroke, TweenInfo.new(0.2, Enum.EasingStyle.Linear), {Transparency = 1}):Play()
+
     local tw = TweenService:Create(MainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
         Position = UDim2.new(0.5, -220, 0.5, -120),
         GroupTransparency = 1
@@ -638,6 +660,9 @@ CloseBtn.MouseButton1Click:Connect(function()
 end)
 
 MinBtn.MouseButton1Click:Connect(function()
+    -- Hilangkan stroke duluan pas minimize
+    TweenService:Create(MainStroke, TweenInfo.new(0.2, Enum.EasingStyle.Linear), {Transparency = 1}):Play()
+
     local anim = TweenService:Create(MainFrame, TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
         Position = UDim2.new(0.5, -220, 0.5, -120),
         GroupTransparency = 1
@@ -666,12 +691,16 @@ MinIcon.MouseButton1Click:Connect(function()
     MainFrame.GroupTransparency = 1
     MainFrame.Size = UDim2.new(0, 440, 0, 270)
     MainFrame.Position = UDim2.new(0.5, -220, 0.5, -120)
+    MainStroke.Transparency = 1 -- Reset stroke ke transparan dulu
     
     local anim = TweenService:Create(MainFrame, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
         GroupTransparency = 0,
         Position = UDim2.new(0.5, -220, 0.5, -135)
     })
     anim:Play()
+    
+    -- Munculin lagi stroke-nya barengan animasi buka
+    TweenService:Create(MainStroke, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Transparency = 0}):Play()
 end)
 
 -- ==========================================
@@ -724,14 +753,15 @@ renderFileList = function()
             ItemCorner.CornerRadius = UDim.new(0, 6)
             ItemCorner.Parent = ItemFrame
 
-            local IconLabel = Instance.new("TextLabel")
-            IconLabel.Size = UDim2.new(0, 26, 1, 0)
+            -- MENGGANTI TEXT "///" DENGAN ICON FOLDER
+            local IconLabel = Instance.new("ImageLabel")
+            IconLabel.Size = UDim2.new(0, 16, 0, 16)
+            IconLabel.Position = UDim2.new(0, 8, 0.5, -8)
             IconLabel.BackgroundTransparency = 1
-            IconLabel.Text = "///" 
-            IconLabel.TextColor3 = Color3.fromRGB(0, 130, 255)
-            IconLabel.Font = Enum.Font.GothamBold
-            IconLabel.TextSize = 12
             IconLabel.ZIndex = 4
+            if isfile(folderIconFileName) then
+                pcall(function() IconLabel.Image = getcustomasset(folderIconFileName) end)
+            end
             IconLabel.Parent = ItemFrame
 
             local TextClip = Instance.new("Frame")
