@@ -1,0 +1,432 @@
+-- ============================================================
+-- SYAA STANDALONE MAP COPIER v5 (COMPACT UI & SLIDE NOTIF)
+-- ============================================================
+local CoreGui = (type(getgui) == "function" and getgui()) or (type(gethui) == "function" and gethui()) or game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local httpRequest = request or http_request or (http and http.request)
+
+-- 1. Setup Folder Coppy
+local COPPIER_FOLDER = "syahub coppy"
+if type(makefolder) == "function" then
+    if type(isfolder) == "function" then
+        if not isfolder(COPPIER_FOLDER) then pcall(function() makefolder(COPPIER_FOLDER) end) end
+    else
+        pcall(function() makefolder(COPPIER_FOLDER) end)
+    end
+end
+
+-- Bersihin UI Lama
+if CoreGui:FindFirstChild("SyaaMapCopierUI") then CoreGui.SyaaMapCopierUI:Destroy() end
+if CoreGui:FindFirstChild("SyaaCustomNotif") then CoreGui.SyaaCustomNotif:Destroy() end
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "SyaaMapCopierUI"
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.Parent = CoreGui
+
+-- ==========================================
+-- SISTEM NOTIFIKASI SLIDE (KANAN ATAS)
+-- ==========================================
+local NotifGui = Instance.new("ScreenGui")
+NotifGui.Name = "SyaaCustomNotif"
+NotifGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+NotifGui.Parent = CoreGui
+
+local activeNotifs = 0
+local function showNotification(text, mode)
+    local yOffset = 20 + (activeNotifs * 50)
+    activeNotifs = activeNotifs + 1
+    
+    local NotifFrame = Instance.new("Frame")
+    NotifFrame.Size = UDim2.new(0, 240, 0, 40)
+    NotifFrame.Position = UDim2.new(1, 20, 0, yOffset) -- Mulai dari luar layar (Kanan)
+    NotifFrame.BackgroundColor3 = Color3.fromRGB(20, 22, 28)
+    Instance.new("UICorner", NotifFrame).CornerRadius = UDim.new(0, 8)
+    
+    local stroke = Instance.new("UIStroke", NotifFrame)
+    stroke.Thickness = 1.5
+    
+    local icon = "⏳"
+    if mode == "success" then
+        stroke.Color = Color3.fromRGB(0, 255, 120)
+        icon = "✅"
+    elseif mode == "error" then
+        stroke.Color = Color3.fromRGB(255, 80, 80)
+        icon = "❌"
+    else
+        stroke.Color = Color3.fromRGB(0, 130, 255)
+    end
+
+    local lbl = Instance.new("TextLabel", NotifFrame)
+    lbl.Size = UDim2.new(1, -20, 1, 0)
+    lbl.Position = UDim2.new(0, 10, 0, 0)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = icon .. " " .. text
+    lbl.TextColor3 = Color3.fromRGB(230, 230, 230)
+    lbl.Font = Enum.Font.GothamMedium
+    lbl.TextSize = 11
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.TextWrapped = true
+
+    NotifFrame.Parent = NotifGui
+
+    -- Animasi Masuk (Slide In)
+    local tweenIn = TweenService:Create(NotifFrame, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Position = UDim2.new(1, -260, 0, yOffset)})
+    tweenIn:Play()
+    
+    -- Tunggu 3 detik terus keluar
+    task.delay(3, function()
+        -- Animasi Keluar (Slide Out)
+        local tweenOut = TweenService:Create(NotifFrame, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.In), {Position = UDim2.new(1, 20, 0, yOffset)})
+        tweenOut:Play()
+        tweenOut.Completed:Wait()
+        NotifFrame:Destroy()
+        activeNotifs = activeNotifs - 1
+    end)
+end
+
+-- ==========================================
+-- SISTEM DOWNLOAD ICON (Icon Toggle & Checkmark)
+-- ==========================================
+local iconFileName = "SyaaCustomToggleIcon.jpg"
+local checkFileName = "SyaaCheckIcon.png"
+local finalIcon = "rbxassetid://10882439086"
+local finalCheckIcon = "rbxassetid://6031094678"
+
+if type(readfile) == "function" and type(writefile) == "function" and type(getcustomasset) == "function" then
+    task.spawn(function()
+        if not isfile(iconFileName) and httpRequest then
+            pcall(function() writefile(iconFileName, httpRequest({Url = "https://i.ibb.co.com/5X67PWQF/IMG-20260906-WA0118.jpg", Method = "GET"}).Body) end)
+        end
+        if isfile(iconFileName) then pcall(function() finalIcon = getcustomasset(iconFileName) end) end
+
+        if not isfile(checkFileName) and httpRequest then
+            pcall(function() writefile(checkFileName, httpRequest({Url = "https://i.ibb.co.com/ycXBQ60q/IMG-20260906-WA0122.png", Method = "GET"}).Body) end)
+        end
+        if isfile(checkFileName) then pcall(function() finalCheckIcon = getcustomasset(checkFileName) end) end
+    end)
+end
+
+-- ==========================================
+-- BIKIN UI UTAMA & FLOATING ICON
+-- ==========================================
+local ToggleBtn = Instance.new("ImageButton", ScreenGui)
+ToggleBtn.Size = UDim2.new(0, 45, 0, 45)
+ToggleBtn.Position = UDim2.new(0, 20, 0.5, -22)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(20, 22, 28)
+ToggleBtn.Image = finalIcon
+ToggleBtn.ScaleType = Enum.ScaleType.Crop
+ToggleBtn.Visible = false
+Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 10)
+Instance.new("UIStroke", ToggleBtn).Color = Color3.fromRGB(0, 130, 255)
+Instance.new("UIStroke", ToggleBtn).Thickness = 2
+local ToggleScale = Instance.new("UIScale", ToggleBtn)
+ToggleScale.Scale = 0
+
+-- Frame Utama (Ukurannya Dikecilin Lagi Jadi 290 x 345)
+local MainFrame = Instance.new("Frame", ScreenGui)
+MainFrame.Size = UDim2.new(0, 290, 0, 345) 
+MainFrame.Position = UDim2.new(0.5, -145, 0.5, -172)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 22, 28)
+MainFrame.BorderSizePixel = 0
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 14)
+Instance.new("UIStroke", MainFrame).Color = Color3.fromRGB(60, 60, 70)
+Instance.new("UIStroke", MainFrame).Thickness = 1.5
+local MainScale = Instance.new("UIScale", MainFrame)
+MainScale.Scale = 1
+
+task.spawn(function()
+    if type(getcustomasset) == "function" then
+        while not isfile(iconFileName) do task.wait(0.5) end
+        pcall(function() ToggleBtn.Image = getcustomasset(iconFileName) end)
+    end
+end)
+
+local function makeDraggable(dragArea, moveObject)
+    local dragging, dragInput, dragStart, startPos
+    dragArea.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true; dragStart = input.Position; startPos = moveObject.Position
+            input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false end end)
+        end
+    end)
+    dragArea.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            moveObject.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+end
+makeDraggable(ToggleBtn, ToggleBtn)
+
+-- ==========================================
+-- HEADER UI UTAMA
+-- ==========================================
+local Title = Instance.new("TextLabel", MainFrame)
+Title.Size = UDim2.new(1, 0, 0, 35)
+Title.BackgroundTransparency = 1
+Title.Text = "🗺️ Syaa Map Stealer"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 13
+Title.TextXAlignment = Enum.TextXAlignment.Left
+local padding = Instance.new("UIPadding", Title)
+padding.PaddingLeft = UDim.new(0, 15)
+makeDraggable(Title, MainFrame)
+
+local CloseBtn = Instance.new("TextButton", Title)
+CloseBtn.Size = UDim2.new(0, 30, 0, 30)
+CloseBtn.Position = UDim2.new(1, -30, 0.5, -15)
+CloseBtn.BackgroundTransparency = 1
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.TextSize = 14
+CloseBtn.Activated:Connect(function() ScreenGui:Destroy() NotifGui:Destroy() end)
+
+local MinBtn = Instance.new("TextButton", Title)
+MinBtn.Size = UDim2.new(0, 30, 0, 30)
+MinBtn.Position = UDim2.new(1, -55, 0.5, -15)
+MinBtn.BackgroundTransparency = 1
+MinBtn.Text = "—"
+MinBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
+MinBtn.Font = Enum.Font.GothamBold
+MinBtn.TextSize = 12
+
+-- ANIMASI BUKA TUTUP
+local animOut = TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+local animIn = TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+
+MinBtn.Activated:Connect(function()
+    local tw = TweenService:Create(MainScale, animOut, {Scale = 0})
+    tw:Play()
+    tw.Completed:Wait()
+    MainFrame.Visible = false
+    
+    ToggleBtn.Visible = true
+    TweenService:Create(ToggleScale, animIn, {Scale = 1}):Play()
+end)
+
+ToggleBtn.Activated:Connect(function()
+    local tw = TweenService:Create(ToggleScale, animOut, {Scale = 0})
+    tw:Play()
+    tw.Completed:Wait()
+    ToggleBtn.Visible = false
+    
+    MainFrame.Visible = true
+    TweenService:Create(MainScale, animIn, {Scale = 1}):Play()
+end)
+
+-- ==========================================
+-- KONTEN CHECKBOX + ICON CENTANG
+-- ==========================================
+local function createCheckbox(parent, text, yPos, defaultState)
+    local frame = Instance.new("Frame", parent)
+    frame.Size = UDim2.new(1, -20, 0, 26)
+    frame.Position = UDim2.new(0, 10, 0, yPos)
+    frame.BackgroundTransparency = 1
+    
+    local btn = Instance.new("TextButton", frame)
+    btn.Size = UDim2.new(0, 20, 0, 20)
+    btn.Position = UDim2.new(0, 5, 0.5, -10)
+    btn.BackgroundColor3 = defaultState and Color3.fromRGB(0, 130, 255) or Color3.fromRGB(30, 30, 35)
+    btn.Text = ""
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+    Instance.new("UIStroke", btn).Color = Color3.fromRGB(60, 60, 70)
+    
+    local checkImg = Instance.new("ImageLabel", btn)
+    checkImg.Size = UDim2.new(0, 14, 0, 14)
+    checkImg.Position = UDim2.new(0.5, -7, 0.5, -7)
+    checkImg.BackgroundTransparency = 1
+    checkImg.Image = finalCheckIcon
+    checkImg.ScaleType = Enum.ScaleType.Fit
+    checkImg.Visible = defaultState
+
+    task.spawn(function()
+        if type(getcustomasset) == "function" then
+            while not isfile(checkFileName) do task.wait(0.5) end
+            pcall(function() checkImg.Image = getcustomasset(checkFileName) end)
+        end
+    end)
+    
+    local lbl = Instance.new("TextLabel", frame)
+    lbl.Size = UDim2.new(1, -35, 1, 0)
+    lbl.Position = UDim2.new(0, 32, 0, 0)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = text
+    lbl.TextColor3 = Color3.fromRGB(220, 220, 220)
+    lbl.Font = Enum.Font.GothamMedium
+    lbl.TextSize = 11
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    
+    local state = defaultState
+    btn.Activated:Connect(function()
+        state = not state
+        btn.BackgroundColor3 = state and Color3.fromRGB(0, 130, 255) or Color3.fromRGB(30, 30, 35)
+        checkImg.Visible = state
+    end)
+    return function() return state end
+end
+
+-- Rapat Dikit Y-pos nya biar muat di UI kecil
+local getWs = createCheckbox(MainFrame, "Save Workspace (Map)", 35, true)
+local getRs = createCheckbox(MainFrame, "Save ReplicatedStorage", 65, true)
+local getSg = createCheckbox(MainFrame, "Save StarterGui (UI/Menu)", 95, true)
+local getSps = createCheckbox(MainFrame, "Save StarterPlayerScripts", 125, false)
+local getAll = createCheckbox(MainFrame, "Save All (Full Satu Game Utuh)", 155, false)
+
+-- ==========================================
+-- TAB PILL FORMAT
+-- ==========================================
+local FormatLbl = Instance.new("TextLabel", MainFrame)
+FormatLbl.Size = UDim2.new(1, -20, 0, 20)
+FormatLbl.Position = UDim2.new(0, 15, 0, 190)
+FormatLbl.BackgroundTransparency = 1
+FormatLbl.Text = "Pilih Format Output:"
+FormatLbl.TextColor3 = Color3.fromRGB(200, 200, 200)
+FormatLbl.Font = Enum.Font.GothamMedium
+FormatLbl.TextSize = 11
+FormatLbl.TextXAlignment = Enum.TextXAlignment.Left
+
+local TabContainer = Instance.new("Frame", MainFrame)
+TabContainer.Size = UDim2.new(1, -30, 0, 32)
+TabContainer.Position = UDim2.new(0, 15, 0, 215)
+TabContainer.BackgroundColor3 = Color3.fromRGB(15, 17, 22)
+Instance.new("UICorner", TabContainer).CornerRadius = UDim.new(1, 0)
+Instance.new("UIStroke", TabContainer).Color = Color3.fromRGB(60, 60, 70)
+
+local TabLayout = Instance.new("UIListLayout", TabContainer)
+TabLayout.FillDirection = Enum.FillDirection.Horizontal
+TabLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+TabLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+TabLayout.Padding = UDim.new(0, 8)
+
+local currentFormat = ".rbxm"
+local formatBtns = {}
+
+local function createTab(name)
+    local btn = Instance.new("TextButton", TabContainer)
+    btn.Size = UDim2.new(0.46, 0, 0.8, 0)
+    btn.BackgroundColor3 = (name == currentFormat) and Color3.fromRGB(50, 50, 60) or Color3.fromRGB(15, 17, 22)
+    btn.Text = name
+    btn.TextColor3 = (name == currentFormat) and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(150, 150, 160)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 11
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(1, 0)
+    formatBtns[name] = btn
+
+    btn.Activated:Connect(function()
+        currentFormat = name
+        for n, b in pairs(formatBtns) do
+            b.BackgroundColor3 = (n == currentFormat) and Color3.fromRGB(50, 50, 60) or Color3.fromRGB(15, 17, 22)
+            b.TextColor3 = (n == currentFormat) and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(150, 150, 160)
+        end
+    end)
+end
+createTab(".rbxm")
+createTab(".rbxlx")
+
+-- ==========================================
+-- TOMBOL EXECUTE & SAVEINSTANCE
+-- ==========================================
+local ExecBtn = Instance.new("TextButton", MainFrame)
+ExecBtn.Size = UDim2.new(1, -30, 0, 38)
+ExecBtn.Position = UDim2.new(0, 15, 0, 260)
+ExecBtn.BackgroundColor3 = Color3.fromRGB(0, 130, 255)
+ExecBtn.Text = "🚀 Mulai Copy Map"
+ExecBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ExecBtn.Font = Enum.Font.GothamBold
+ExecBtn.TextSize = 13
+Instance.new("UICorner", ExecBtn).CornerRadius = UDim.new(1, 0)
+
+local StatusLbl = Instance.new("TextLabel", MainFrame)
+StatusLbl.Size = UDim2.new(1, -30, 0, 20)
+StatusLbl.Position = UDim2.new(0, 15, 0, 310)
+StatusLbl.BackgroundTransparency = 1
+StatusLbl.Text = "Menunggu perintah..."
+StatusLbl.TextColor3 = Color3.fromRGB(150, 150, 150)
+StatusLbl.Font = Enum.Font.Gotham
+StatusLbl.TextSize = 10
+
+ExecBtn.Activated:Connect(function()
+    ExecBtn.Text = "Mempersiapkan..."
+    ExecBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+    StatusLbl.Text = "Tunggu bentar brok..."
+    
+    -- PANGGIL NOTIF LOADING
+    showNotification("Menyiapkan file & Download API...", "loading")
+    
+    task.spawn(function()
+        local successDL, saveinstance = pcall(function()
+            return loadstring(game:HttpGet("https://raw.githubusercontent.com/luau/UniversalSynSaveInstance/main/saveinstance.luau", true))()
+        end)
+        
+        if not successDL or not saveinstance then
+            ExecBtn.Text = "🚀 Mulai Copy Map"
+            ExecBtn.BackgroundColor3 = Color3.fromRGB(0, 130, 255)
+            StatusLbl.Text = "Gagal download modul. Cek koneksi internet!"
+            showNotification("Gagal Download API SaveInstance!", "error")
+            return
+        end
+        
+        local fileName = COPPIER_FOLDER .. "/SyaaMap_" .. tostring(math.random(1000, 9999)) .. currentFormat
+        StatusLbl.Text = "Mengekstrak file (Bisa lag bentar)..."
+        showNotification("Mulai Copy! Game mungkin nge-freeze...", "loading")
+        
+        local ok, err
+        
+        -- LOGIKA SAVE ALL vs CUSTOM
+        if getAll() then
+            ok, err = pcall(function()
+                saveinstance({ mode = "optimized", noscripts = false, filepath = fileName })
+            end)
+        else
+            local exportFolder = Instance.new("Folder")
+            exportFolder.Name = "SyaaHub_Export_Map"
+            
+            if getWs() then
+                local wsF = Instance.new("Folder"); wsF.Name = "Workspace"
+                for _, v in ipairs(workspace:GetChildren()) do
+                    if v.Name ~= "Terrain" and v ~= exportFolder and not v:IsA("Camera") then
+                        pcall(function() local c = v:Clone(); if c then c.Parent = wsF end end)
+                    end
+                end
+                wsF.Parent = exportFolder
+            end
+            
+            if getRs() then pcall(function() local rsF = game:GetService("ReplicatedStorage"):Clone(); if rsF then rsF.Parent = exportFolder end end) end
+            if getSg() then pcall(function() local sgF = game:GetService("StarterGui"):Clone(); if sgF then sgF.Parent = exportFolder end end) end
+            if getSps() then pcall(function() local spsF = game:GetService("StarterPlayer").StarterPlayerScripts:Clone(); if spsF then spsF.Parent = exportFolder end end) end
+            
+            exportFolder.Parent = CoreGui
+            
+            ok, err = pcall(function()
+                saveinstance({ mode = "optimized", noscripts = false, filepath = fileName, Object = exportFolder })
+            end)
+            
+            exportFolder:Destroy()
+        end
+        
+        if ok then
+            StatusLbl.Text = "✅ Tersimpan di folder: " .. COPPIER_FOLDER
+            StatusLbl.TextColor3 = Color3.fromRGB(0, 255, 120)
+            -- PANGGIL NOTIF BERHASIL
+            showNotification("Berhasil disimpan ke folder: " .. COPPIER_FOLDER, "success")
+        else
+            StatusLbl.Text = "❌ Gagal: " .. tostring(err):sub(1, 40)
+            StatusLbl.TextColor3 = Color3.fromRGB(255, 80, 80)
+            -- PANGGIL NOTIF ERROR
+            showNotification("Gagal Copy! Cek konsol buat detailnya.", "error")
+        end
+        
+        ExecBtn.Text = "🚀 Mulai Copy Map"
+        ExecBtn.BackgroundColor3 = Color3.fromRGB(0, 130, 255)
+        task.wait(5)
+        StatusLbl.TextColor3 = Color3.fromRGB(150, 150, 150)
+        StatusLbl.Text = "Menunggu perintah..."
+    end)
+end)
